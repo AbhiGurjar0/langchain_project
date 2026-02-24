@@ -1,5 +1,10 @@
 import streamlit as st
 import requests
+from dotenv import load_dotenv
+import os
+load_dotenv()
+
+backend_url = os.getenv("BACKEND_URL")
 
 st.set_page_config(page_title="Titanic Chat Agent", page_icon="🚢")
 

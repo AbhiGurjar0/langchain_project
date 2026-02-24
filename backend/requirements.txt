@@ -12,3 +12,6 @@ seaborn==0.13.2
 streamlit==1.38.0
 requests==2.32.3
 python-multipart==0.0.9
+pip>=24.0
+setuptools>=70.0.0
+wheel>=0.43.0
