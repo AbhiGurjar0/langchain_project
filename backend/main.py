@@ -1,9 +1,10 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 from fastapi.responses import FileResponse
-
+import os
 from agent import ask_agent
 
+BACKEND_URL =  os.getenv("BACKEND_URL")
 
 app = FastAPI()
 
@@ -27,7 +28,7 @@ def chat(query: Query):
 
         return {
             "type": "chart",
-            "chart_url": f"http://localhost:8000/chart/{chart_path}"
+            "chart_url": f"{BACKEND_URL}/chart/{chart_path}"
         }
 
     else:

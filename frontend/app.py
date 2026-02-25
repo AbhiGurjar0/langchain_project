@@ -3,7 +3,7 @@ import requests
 
 st.title("🚢 Titanic Chat Agent")
 
-BACKEND_URL = "http://localhost:8000"
+BACKEND_URL = "https://langchain-project-88gl.onrender.com"
 
 # Initialize chat history
 if "messages" not in st.session_state:
