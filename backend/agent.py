@@ -1,6 +1,8 @@
 from langchain_ollama import OllamaLLM
 from langchain_core.prompts import PromptTemplate
 import matplotlib
+from dotenv import load_dotenv
+load_dotenv()
 
 matplotlib.use("Agg")
 import pandas as pd
@@ -9,82 +11,57 @@ import seaborn as sns
 from typing import TypedDict, Literal
 from langchain_ollama import ChatOllama
 import time
+from langchain_groq import ChatGroq
+import os
 
-# classifier model (fast model recommended)
-classifier_llm = ChatOllama(model="llama3.1:8b", temperature=0)
-
-
-class QueryType(TypedDict):
-    type: Literal["0", "1"]  # 0 = chart, 1 = text
-
-
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+llm = ChatGroq(
+    model="llama-3.1-8b-instant",
+    api_key=GROQ_API_KEY,
+    temperature=0,
+)
 # Load dataset once
 DATA_PATH = "titanic.csv"
 df = pd.read_csv(DATA_PATH)
 
-# Initialize LLM
-chart_llm = OllamaLLM(model="deepseek-coder:6.7b", temperature=0)
-
-text_llm = OllamaLLM(model="llama3.1:8b", temperature=0)
-
-# Unified prompt
-
-chart_prompt = PromptTemplate.from_template(
+unified_prompt = PromptTemplate.from_template(
     """
-You are a Python data visualization expert.
+You are an intelligent Titanic dataset assistant and data visualization expert.
 
-Data columns:
+You have access to a pandas DataFrame called df with these columns:
 {columns}
-
-User request:
-{request}
-
-Generate ONLY valid matplotlib Python code.
-
-Rules:
-- Use dataframe name: df
-- Do NOT explain
-- Do NOT print
-- Only code
-"""
-)
-
-normal_prompt = PromptTemplate.from_template(
-    """
-You are a Titanic dataset assistant.
 
 Dataset context:
 {context}
 
-User question:
-{query}
-
-Rules:
-- Answer using the dataset context
-- Answer in clear natural language
-- Do NOT generate code
-- Give direct answer
-
-Answer:
-"""
-)
-classifier_prompt = """
-You are a query classifier.
-
-Classify the user query into one of two categories:
-
-0 → Visualization request (chart, plot, graph, heatmap, visualize)
-1 → Normal question (asking about data, statistics, percentage, count, etc.)
-
-Return ONLY:
-
-0 or 1
-
 User query:
 {query}
-"""
 
-structured_classifier = classifier_llm.with_structured_output(QueryType)
+Your task:
+
+If the user is asking for visualization (chart, graph, histogram, plot, heatmap, scatter, distribution, etc):
+
+→ Generate ONLY valid matplotlib or seaborn Python code  
+→ Use ONLY the existing dataframe df  
+→ Do NOT explain  
+→ Do NOT print  
+→ Do NOT use markdown  
+→ Output ONLY executable Python code  
+
+If the user is asking a normal question:
+
+→ Generate ONLY a clear natural language answer  
+→ Do NOT generate code  
+→ Do NOT explain the process  
+→ Answer directly  
+
+IMPORTANT:
+- Output must be EITHER code OR text
+- NEVER output both
+- NEVER explain what you are doing
+"""
+)
+# structured_classifier = llm.with_structured_output(QueryType)
 
 
 # Clean code
@@ -97,28 +74,6 @@ def clean_code(code: str):
 # Detect chart
 def is_chart_code(response: str):
     return "plt." in response or "sns." in response or ".plot(" in response
-
-
-# Detect if query is visualization request
-def is_visualization_query(query: str):
-
-    keywords = [
-        "chart",
-        "plot",
-        "graph",
-        "visualize",
-        "visualization",
-        "heatmap",
-        "bar",
-        "hist",
-        "distribution",
-        "scatter",
-        "line",
-    ]
-
-    query = query.lower()
-
-    return any(keyword in query for keyword in keywords)
 
 
 def get_dataset_context(df):
@@ -143,44 +98,40 @@ def get_dataset_context(df):
     return context
 
 
-def classify_query(query: str):
-
-    result = structured_classifier.invoke(classifier_prompt.format(query=query))
-
-    return result["type"]
-
-
 def ask_agent(query: str):
 
-    query_type = classify_query(query)
+    context = get_dataset_context(df)
 
-    # Case 0 → chart
-    if query_type == "0":
+    prompt = unified_prompt.format(
+        columns=list(df.columns), context=context, query=query
+    )
 
-        prompt = chart_prompt.format(columns=list(df.columns), request=query)
+    response = llm.invoke(prompt).content
 
-        code = chart_llm.invoke(prompt)
+    response = clean_code(response)
 
-        code = clean_code(code)
+    # If response contains matplotlib code → chart
+    if is_chart_code(response):
 
-        plt.clf()
+        try:
 
-        exec(code, {"df": df, "plt": plt, "pd": pd, "sns": sns})
+            plt.clf()
 
-        filename = f"chart_{int(time.time())}.png"
+            exec(response, {"df": df, "plt": plt, "pd": pd, "sns": sns})
 
-        plt.savefig(filename)
-        plt.close()
+            filename = f"chart_{int(time.time())}.png"
 
-        return {"type": "chart", "chart_path": filename}
+            plt.savefig(filename, bbox_inches="tight")
 
-    # Case 1 → normal answer
+            plt.close()
+
+            return {"type": "chart", "chart_path": filename}
+
+        except Exception as e:
+
+            return {"type": "text", "content": f"Chart generation failed: {str(e)}"}
+
+    # Otherwise → text answer
     else:
 
-        context = get_dataset_context(df)
-
-        prompt = normal_prompt.format(context=context, query=query)
-
-        answer = text_llm.invoke(prompt)
-
-        return {"type": "text", "content": answer}
+        return {"type": "text", "content": response}

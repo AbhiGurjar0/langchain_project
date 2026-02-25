@@ -1,10 +1,14 @@
 import streamlit as st
 import requests
 import os
+from dotenv import load_dotenv
+load_dotenv()
+
+BACKEND_URL = os.getenv("BACKEND_URL")
 
 st.title("🚢 Titanic Chat Agent")
 
-BACKEND_URL = os.getenv("BACKEND_URL")
+BACKEND_URL = os.getenv("BACKEND_URL","http://127.0.0.1:8000")
 
 # Initialize chat history
 if "messages" not in st.session_state:

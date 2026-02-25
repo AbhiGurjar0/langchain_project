@@ -3,8 +3,10 @@ from pydantic import BaseModel
 from fastapi.responses import FileResponse
 import os
 from agent import ask_agent
+from dotenv import load_dotenv
 
-BACKEND_URL =  os.getenv("BACKEND_URL")
+load_dotenv()
+BACKEND_URL = os.getenv("BACKEND_URL", "http://127.0.0.1:8000")
 
 app = FastAPI()
 
@@ -26,17 +28,11 @@ def chat(query: Query):
     if result["type"] == "chart":
         chart_path = result["chart_path"]
 
-        return {
-            "type": "chart",
-            "chart_url": f"{BACKEND_URL}/chart/{chart_path}"
-        }
+        return {"type": "chart", "chart_url": f"{BACKEND_URL}/chart/{chart_path}"}
 
     else:
 
-        return {
-            "type": "text",
-            "answer": result["content"]
-        }
+        return {"type": "text", "answer": result["content"]}
 
 
 @app.get("/chart/{filename}")
