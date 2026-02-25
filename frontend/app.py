@@ -8,7 +8,7 @@ BACKEND_URL = os.getenv("BACKEND_URL")
 
 st.title("🚢 Titanic Chat Agent")
 
-BACKEND_URL = os.getenv("BACKEND_URL","http://127.0.0.1:8000")
+BACKEND_URL = st.secrets.get("BACKEND_URL", "http://localhost:8000")
 
 # Initialize chat history
 if "messages" not in st.session_state:
