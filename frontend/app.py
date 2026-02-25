@@ -1,9 +1,10 @@
 import streamlit as st
 import requests
+import os
 
 st.title("🚢 Titanic Chat Agent")
 
-BACKEND_URL = "https://langchain-project-88gl.onrender.com"
+BACKEND_URL = os.getenv("BACKEND_URL")
 
 # Initialize chat history
 if "messages" not in st.session_state:
