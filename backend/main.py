@@ -1,7 +1,9 @@
 from fastapi import FastAPI
-from agent import ask_agent
 from pydantic import BaseModel
-from tool import get_dataframe
+from fastapi.responses import FileResponse
+
+from agent import ask_agent
+
 
 app = FastAPI()
 
@@ -10,12 +12,32 @@ class Query(BaseModel):
     question: str
 
 
-@app.get("/hi")
+@app.get("/")
 def home():
-    return {"Greetings": "Hello Abhi Good morning"}
+    return {"message": "Titanic agent running"}
 
 
 @app.post("/chat")
 def chat(query: Query):
-    response = ask_agent( query.question)
-    return {"answer": response}
+
+    result = ask_agent(query.question)
+
+    if result["type"] == "chart":
+
+        return {
+            "type": "chart",
+            "chart_url": "http://localhost:8000/chart"
+        }
+
+    else:
+
+        return {
+            "type": "text",
+            "answer": result["content"]
+        }
+
+
+@app.get("/chart")
+def get_chart():
+
+    return FileResponse("chart.png")

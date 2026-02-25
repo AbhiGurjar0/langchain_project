@@ -1,48 +1,84 @@
 import streamlit as st
 import requests
-from dotenv import load_dotenv
-import os
-load_dotenv()
-
-backend_url = os.getenv("BACKEND_URL")
-
-st.set_page_config(page_title="Titanic Chat Agent", page_icon="🚢")
 
 st.title("🚢 Titanic Chat Agent")
 
-# Store chat history
+BACKEND_URL = "http://localhost:8000"
+
+# Initialize chat history
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Display previous messages
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
+# Display chat history
+for msg in st.session_state.messages:
 
-# Chat input at bottom (ChatGPT style)
+    with st.chat_message(msg["role"]):
+
+        if msg["type"] == "chart":
+
+            st.image(msg["content"])
+
+        else:
+
+            st.markdown(msg["content"])
+
+
+# Chat input
 if prompt := st.chat_input("Ask about Titanic dataset..."):
 
-    # Show user message
+    # Save user message
     st.session_state.messages.append(
-        {"role": "user", "content": prompt}
+        {"role": "user", "content": prompt, "type": "text"}
     )
 
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    # Call FastAPI backend
+    # Assistant response
     with st.chat_message("assistant"):
+
         with st.spinner("Thinking..."):
-            response = requests.post(
-                "http://localhost:8000/chat",
-                json={"question": prompt}
-            )
 
-            answer = response.json()["answer"]["response"]
+            try:
 
-            st.markdown(answer)
+                response = requests.post(
+                    f"{BACKEND_URL}/chat",
+                    json={"question": prompt},
+                    timeout=60
+                )
 
-    # Save assistant response
-    st.session_state.messages.append(
-        {"role": "assistant", "content": answer}
-    )
+                response = response.json()
+
+                # Chart response
+                if response["type"] == "chart":
+
+                    chart_url = f"{BACKEND_URL}/chart"
+
+                    st.image(chart_url)
+
+                    st.session_state.messages.append(
+                        {
+                            "role": "assistant",
+                            "content": chart_url,
+                            "type": "chart"
+                        }
+                    )
+
+                # Text response
+                else:
+
+                    answer = response["answer"]
+
+                    st.markdown(answer)
+
+                    st.session_state.messages.append(
+                        {
+                            "role": "assistant",
+                            "content": answer,
+                            "type": "text"
+                        }
+                    )
+
+            except Exception as e:
+
+                st.error(f"Backend error: {str(e)}")
