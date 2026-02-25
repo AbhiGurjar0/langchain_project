@@ -23,10 +23,11 @@ def chat(query: Query):
     result = ask_agent(query.question)
 
     if result["type"] == "chart":
+        chart_path = result["chart_path"]
 
         return {
             "type": "chart",
-            "chart_url": "http://localhost:8000/chart"
+            "chart_url": f"http://localhost:8000/chart/{chart_path}"
         }
 
     else:
@@ -37,7 +38,7 @@ def chat(query: Query):
         }
 
 
-@app.get("/chart")
-def get_chart():
+@app.get("/chart/{filename}")
+def get_chart(filename: str):
 
-    return FileResponse("chart.png")
+    return FileResponse(filename)

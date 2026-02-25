@@ -6,6 +6,17 @@ matplotlib.use("Agg")
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+from typing import TypedDict, Literal
+from langchain_ollama import ChatOllama
+import time
+
+# classifier model (fast model recommended)
+classifier_llm = ChatOllama(model="llama3.1:8b", temperature=0)
+
+
+class QueryType(TypedDict):
+    type: Literal["0", "1"]  # 0 = chart, 1 = text
+
 
 # Load dataset once
 DATA_PATH = "titanic.csv"
@@ -57,6 +68,23 @@ Rules:
 Answer:
 """
 )
+classifier_prompt = """
+You are a query classifier.
+
+Classify the user query into one of two categories:
+
+0 → Visualization request (chart, plot, graph, heatmap, visualize)
+1 → Normal question (asking about data, statistics, percentage, count, etc.)
+
+Return ONLY:
+
+0 or 1
+
+User query:
+{query}
+"""
+
+structured_classifier = classifier_llm.with_structured_output(QueryType)
 
 
 # Clean code
@@ -115,56 +143,44 @@ def get_dataset_context(df):
     return context
 
 
+def classify_query(query: str):
+
+    result = structured_classifier.invoke(classifier_prompt.format(query=query))
+
+    return result["type"]
+
+
 def ask_agent(query: str):
 
-    # CASE 1: Visualization request
-    if is_visualization_query(query):
+    query_type = classify_query(query)
+
+    # Case 0 → chart
+    if query_type == "0":
 
         prompt = chart_prompt.format(columns=list(df.columns), request=query)
 
-        response = chart_llm.invoke(prompt)
+        code = chart_llm.invoke(prompt)
 
-        response = clean_code(response)
+        code = clean_code(code)
 
-        if is_chart_code(response):
+        plt.clf()
 
-            try:
+        exec(code, {"df": df, "plt": plt, "pd": pd, "sns": sns})
 
-                plt.clf()
+        filename = f"chart_{int(time.time())}.png"
 
-                # safe numeric handling for heatmap/correlation
-                safe_df = df.select_dtypes(include=["number"])
+        plt.savefig(filename)
+        plt.close()
 
-                exec(
-                    response,
-                    {
-                        "df": (
-                            safe_df
-                            if "heatmap" in query.lower() or "corr" in query.lower()
-                            else df
-                        ),
-                        "plt": plt,
-                        "pd": pd,
-                        "sns": sns,
-                    },
-                )
+        return {"type": "chart", "chart_path": filename}
 
-                plt.savefig("chart.png")
-                plt.close()
-
-                return {"type": "chart", "chart_path": "chart.png"}
-
-            except Exception as e:
-
-                return {"type": "text", "content": f"Chart generation failed: {str(e)}"}
-
-    # CASE 2: Normal question → send to LLM with normal prompt
+    # Case 1 → normal answer
     else:
 
         context = get_dataset_context(df)
 
         prompt = normal_prompt.format(context=context, query=query)
 
-        response = text_llm.invoke(prompt)
+        answer = text_llm.invoke(prompt)
 
-        return {"type": "text", "content": response.strip()}
+        return {"type": "text", "content": answer}

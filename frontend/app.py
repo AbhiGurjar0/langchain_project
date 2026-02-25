@@ -42,9 +42,7 @@ if prompt := st.chat_input("Ask about Titanic dataset..."):
             try:
 
                 response = requests.post(
-                    f"{BACKEND_URL}/chat",
-                    json={"question": prompt},
-                    timeout=60
+                    f"{BACKEND_URL}/chat", json={"question": prompt}, timeout=60
                 )
 
                 response = response.json()
@@ -52,16 +50,12 @@ if prompt := st.chat_input("Ask about Titanic dataset..."):
                 # Chart response
                 if response["type"] == "chart":
 
-                    chart_url = f"{BACKEND_URL}/chart"
+                    chart_url = response["chart_url"]
 
                     st.image(chart_url)
 
                     st.session_state.messages.append(
-                        {
-                            "role": "assistant",
-                            "content": chart_url,
-                            "type": "chart"
-                        }
+                        {"role": "assistant", "content": chart_url, "type": "chart"}
                     )
 
                 # Text response
@@ -72,11 +66,7 @@ if prompt := st.chat_input("Ask about Titanic dataset..."):
                     st.markdown(answer)
 
                     st.session_state.messages.append(
-                        {
-                            "role": "assistant",
-                            "content": answer,
-                            "type": "text"
-                        }
+                        {"role": "assistant", "content": answer, "type": "text"}
                     )
 
             except Exception as e:
